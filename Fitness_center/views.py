@@ -1,74 +1,154 @@
-import datetime
+from rest_framework.decorators import api_view
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser
 
-from django.core.checks import messages
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+from .models import Client, TrainingType, Subscription
+from Fitness_center.serializers import ClientSerializer, TrainingTypeSerializer, SubscriptionSerializer
+from .serializers import UserRegistrationSerializer
+@api_view(['POST'])
+def register_user(request):
+    serializer = UserRegistrationSerializer(data=request.data)
 
-from .models import Subscription, TrainingType
-from .forms import SubscriptionCreateForm
-
-
-@login_required
-def subscription_create(request):
-    if request.method == "POST":
-        # отримуємо форму з запиту
-        form = SubscriptionCreateForm(request.POST)
-
-        # перевіряємо форму
-        if form.is_valid():
-            # отримуємо дані з форми
-            training_type = form.cleaned_data["training_type"]
-            subscription_purchase_date = form.cleaned_data["subscription_purchase_date"]
-
-            # перевіряємо тип тренування
-            try:
-                training_type_obj = TrainingType.objects.get(name=training_type)
-            except TrainingType.DoesNotExist:
-                messages.error(request, "Неправильний тип тренування")
-                return render(request, "subscription_create.html", {"form": form})
-
-            # перевіряємо дату покупки
-            if subscription_purchase_date < datetime.date.today():
-                messages.error(request, "Дата покупки не може бути в минулому")
-                return render(request, "subscription_create.html", {"form": form})
-
-            # перевіряємо дату закінчення підписки
-            subscription_end_date = subscription_purchase_date + datetime.timedelta(days=30)
-            if subscription_end_date < datetime.date.today():
-                messages.error(request, "Дата закінчення підписки має бути не менше сьогоднішньої дати")
-                return render(request, "subscription_create.html", {"form": form})
-
-            # створюємо модель Subscription
-            subscription = Subscription(
-                user=request.user,
-                training_type=training_type_obj,
-                subscription_purchase_date=subscription_purchase_date,
-            )
-
-            # зберігаємо модель
-            subscription.save()
-
-            # перенаправляємо користувача на головну сторінку
-            return redirect("/")
-        else:
-            # форму не пройшла перевірку
-            # формуємо контекст для шаблону
-            context = {
-                "form": form,
-            }
-
-            return render(request, "subscription_create.html", context)
-
+    if serializer.is_valid():
+        serializer.save()
+        return Response({'message': 'User registered successfully'}, status=status.HTTP_201_CREATED)
     else:
-        # отримуємо всі типи тренувань
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class ClientList(APIView):
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get(self, request, format=None):
+        clients = Client.objects.all()
+        serializer = ClientSerializer(clients, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, format=None):
+        serializer = ClientSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ClientDetail(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pk, format=None):
+        try:
+            client = Client.objects.get(pk=pk)
+        except Client.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        serializer = ClientSerializer(client)
+        return Response(serializer.data)
+
+    def put(self, request, pk, format=None):
+        try:
+            client = Client.objects.get(pk=pk)
+        except Client.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        serializer = ClientSerializer(client, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk, format=None):
+        try:
+            client = Client.objects.get(pk=pk)
+        except Client.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        client.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class TrainingTypeList(APIView):
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get(self, request, format=None):
         training_types = TrainingType.objects.all()
+        serializer = TrainingTypeSerializer(training_types, many=True)
+        return Response(serializer.data)
 
-        # створюємо порожню форму
-        form = SubscriptionCreateForm()
+    def post(self, request, format=None):
+        serializer = TrainingTypeSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # формуємо контекст для шаблону
-        context = {
-            "form": form,
-        }
 
-        return render(request, "subscription_create.html", context)
+class TrainingTypeDetail(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pk, format=None):
+        try:
+            training_type = TrainingType.objects.get(pk=pk)
+        except TrainingType.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        serializer = TrainingTypeSerializer(training_type)
+        return Response(serializer.data)
+
+    def put(self, request, pk, format=None):
+        try:
+            training_type = TrainingType.objects.get(pk=pk)
+        except TrainingType.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        serializer = TrainingTypeSerializer(training_type, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk, format=None):
+        try:
+            training_type = TrainingType.objects.get(pk=pk)
+        except TrainingType.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        training_type.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class SubscriptionList(APIView):
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get(self, request, format=None):
+        subscriptions = Subscription.objects.all()
+        serializer = SubscriptionSerializer(subscriptions, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, format=None):
+        serializer = SubscriptionSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SubscriptionDetail(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get_object(self, pk):
+        try:
+            return Subscription.objects.get(pk=pk)
+        except Subscription.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+    def get(self, request, pk, format=None):
+        subscription = self.get_object(pk)
+        serializer = SubscriptionSerializer(subscription)
+        return Response(serializer.data)
+
+    def put(self, request, pk, format=None):
+        subscription = self.get_object(pk)
+        serializer = SubscriptionSerializer(subscription, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk, format=None):
+        subscription = self.get_object(pk)
+        subscription.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
