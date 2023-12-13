@@ -1,73 +1,97 @@
 from django.test import TestCase
-
-from rest_framework.test import APITestCase
-
+from .serializers import ClientSerializer
+from .models import Client
 from django.contrib.auth.models import User
+from rest_framework.test import APITestCase
 from .serializers import UserRegistrationSerializer
+from rest_framework import status
+from django.urls import reverse
 
 
-class UserRegistrationAPITests(APITestCase):
+class ClientSerializerTest(TestCase):
     def setUp(self):
-        self.valid_data = {
-            'email': 'test@gmail.com',
-            'first_name': 'Test',
-            'last_name': 'User',
-            'password': '12345678',
+        self.client_data = {
+            'first_name': 'John',
+            'last_name': 'Doe',
+            'email': 'johndoe@example.com',
+            'password': 'securepassword',
+            'phone': '1234567890'
         }
-    def test_registration_success(self):
-        response = self.client.post('/api/manager/register/', data=self.valid_data)
-        self.assertEqual(response.status_code, 201)
+        self.serializer = ClientSerializer(data=self.client_data)
 
-        user = User.objects.get(email='test@gmail.com')
-        self.assertEqual(user.first_name, 'Test')
-        self.assertEqual(user.last_name, 'User')
-        self.assertTrue(user.check_password('12345678'))
-    def test_registration_with_invalid_email(self):
-        invalid_data = self.valid_data.copy()
-        invalid_data['email'] = 'test'
-        response = self.client.post('/api/manager/register/', data=invalid_data)
-        self.assertEqual(response.status_code, 400)
+    def test_valid_data(self):
+        self.assertTrue(self.serializer.is_valid())
 
-        self.assertIn('email', response.json())
+    def test_invalid_data(self):
+        invalid_data = {
+            'first_name': 'Jane',
+            'email': 'invalidemail'  # Invalid email format
+        }
+        serializer = ClientSerializer(data=invalid_data)
+        self.assertFalse(serializer.is_valid())
 
-        expected_error = 'Enter a valid email address.'
-        actual_error = response.json()['email'][0]
-        self.assertIn(expected_error, actual_error)
-    def test_registration_with_too_short_password(self):
-        invalid_data = self.valid_data.copy()
-        invalid_data['password'] = '123'
-        response = self.client.post('/api/manager/register/', data=invalid_data)
-        self.assertEqual(response.status_code, 400)
+    def test_serializer_save(self):
+        serializer = ClientSerializer(data=self.client_data)
+        serializer.is_valid()
+        instance = serializer.save()
+        self.assertIsInstance(instance, Client)
 
-        self.assertIn('password', response.json())
+class UserRegistrationSerializerTest(APITestCase):
+    def test_valid_data(self):
+        # Правильні дані користувача
+        data = {
+            'email': 'example@gmail.com',
+            'first_name': 'John',
+            'last_name': 'Doe',
+            'password': 'password123'
+        }
+        serializer = UserRegistrationSerializer(data=data)
+        self.assertTrue(serializer.is_valid())
 
-        self.assertEqual(response.json()['password'][0], 'Пароль повинен бути не менше 8 символів.')
-    def test_registration_with_existing_username(self):
-        self.client.post('/api/manager/register/', data=self.valid_data)
-        response = self.client.post('/api/manager/register/', data=self.valid_data)
-        self.assertEqual(response.status_code, 400)
+    def test_invalid_email(self):
+        # Невірний формат електронної пошти
+        data = {
+            'email': 'example@example.com',  # Невірний формат
+            'first_name': 'John',
+            'last_name': 'Doe',
+            'password': 'password123'
+        }
+        serializer = UserRegistrationSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('Електронна пошта повинна закінчуватися на @gmail.com.', serializer.errors['email'])
 
-        self.assertIn('non_field_errors', response.json())
+    def test_invalid_password(self):
+        # Невірний пароль (занадто короткий)
+        data = {
+            'email': 'example@gmail.com',
+            'first_name': 'John',
+            'last_name': 'Doe',
+            'password': 'pass'  # Пароль занадто короткий
+        }
+        serializer = UserRegistrationSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('Пароль повинен бути не менше 8 символів.', serializer.errors['password'])
 
-        expected_error = 'Користувач з таким іменем вже існує.'
-        actual_error = response.json()['non_field_errors'][0]
-        self.assertIn(expected_error, actual_error)
-    def test_registration_with_non_gmail_email(self):
-        invalid_data = self.valid_data.copy()
-        invalid_data['email'] = 'test@yahoo.com'
-        response = self.client.post('/api/manager/register/', data=invalid_data)
-        self.assertEqual(response.status_code, 400)
+    def test_existing_user(self):
+        # Створення користувача з такою електронною поштою
+        existing_user = User.objects.create_user(username='existinguser', email='existing@gmail.com', password='password')
+        # Дані для нового користувача
+        data = {
+            'email': 'existing@gmail.com',
+            'first_name': 'John',
+            'last_name': 'Doe',
+            'password': 'password123'
+        }
+        # Серіалайзуємо дані нового користувача
+        serializer = UserRegistrationSerializer(data=data)
+        # Перевірка валідації
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('email', serializer.errors)
+        self.assertIn('Користувач з такою електронною поштою вже існує.', serializer.errors['email'])
 
-        self.assertIn('email', response.json())
+class ClientListViewTest(APITestCase):
+    def test_get_clients(self):
+        url = reverse('client-list')  # Перевірте, чи це ім'я шляху для вашого списку клієнтів
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        expected_error = 'Електронна пошта повинна закінчуватися на @gmail.com.'
-        actual_error = response.json()['email'][0]
-        self.assertIn(expected_error, actual_error)
-    def test_registration_with_valid_email(self):
-        valid_data = self.valid_data.copy()
-        valid_data['email'] = 'test@gmail.com'
-        response = self.client.post('/api/manager/register/', data=valid_data)
-        self.assertEqual(response.status_code, 201)
-
-        user = User.objects.get(email='test@gmail.com')
-        self.assertEqual(user.email, 'test@gmail.com')

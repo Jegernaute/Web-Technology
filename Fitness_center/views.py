@@ -8,17 +8,6 @@ from .models import Client, TrainingType, Subscription
 from Fitness_center.serializers import ClientSerializer, TrainingTypeSerializer, SubscriptionSerializer
 from .serializers import UserRegistrationSerializer
 
-@api_view(['DELETE'])
-@permission_classes([permissions.IsAuthenticated])
-def delete_user(request):
-    user_to_delete = request.user  # Отримання користувача, який намагається видалити свій обліковий запис
-
-    # Перевірка, чи користувач спробує видалити себе
-    if user_to_delete == request.user:
-        user_to_delete.delete()
-        return Response({'message': 'User deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
-    else:
-        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 @api_view(['POST'])
 def register_user(request):
     serializer = UserRegistrationSerializer(data=request.data)
