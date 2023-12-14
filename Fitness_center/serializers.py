@@ -42,6 +42,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Користувач з таким іменем вже існує.')
         return data
 
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Користувач з такою електронною поштою вже існує.")
+        return value
+
     def create(self, validated_data):
         validated_data['username'] = validated_data['email']
         user = User.objects.create_user(**validated_data)

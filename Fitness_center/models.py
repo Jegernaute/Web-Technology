@@ -16,7 +16,7 @@ class Client(models.Model):
 
 
 class TrainingType(models.Model):
-    name = models.CharField(max_length=100, choices=[
+    name = models.CharField(max_length=100,blank=False, null=False, choices=[
         ('Хатха-йога', 'Хатха-йога'),
         ('Аштанга-йога', 'Аштанга-йога'),
         ('Інь-йога', 'Інь-йога'),
@@ -24,38 +24,35 @@ class TrainingType(models.Model):
         ('Тренування в залі (з тренером)', 'Тренування в залі (з тренером)'),
     ])
     description = models.TextField(blank=True, null=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=10, decimal_places=2, blank=False, null=False)
 
     def __str__(self):
         return self.name
 
 
 class Subscription(models.Model):
-    user_id = models.ForeignKey(Client, on_delete=models.CASCADE)
-    subscription_purchase_date = models.DateField()
-    subscription_end_date = models.DateField(null=True)
+    user_id = models.ForeignKey(Client, on_delete=models.CASCADE, blank=False, null=False)
+    subscription_purchase_date = models.DateField(blank=False, null=False)
+    subscription_end_date = models.DateField(blank=False, null=False)
 
     # статус підписки
-    status = models.CharField(max_length=50, choices=[
+    status = models.CharField(max_length=50,blank=False, null=False, choices=[
         ('Активна', 'Активна'),
         ('Неактивна', 'Неактивна'),
         ('Припинена', 'Припинена'),
     ])
 
     # стать або гендер
-    gender = models.CharField(max_length=10, choices=[
+    gender = models.CharField(max_length=10, blank=False, null=False, choices=[
         ('Чоловіча', 'Чоловіча'),
         ('Жіноча', 'Жіноча'),
     ])
 
     # тип тренування
-    training_type = models.ForeignKey(TrainingType, on_delete=models.CASCADE)
-
-    # ціна за тренування
-    # price = models.DecimalField(max_digits=10, decimal_places=2, editable=False)
+    training_type = models.ForeignKey(TrainingType, on_delete=models.CASCADE, blank=False, null=False)
 
     # період підписки
-    subscription_period = models.IntegerField(default=30)
+    subscription_period = models.IntegerField(default=30, blank=False, null=False)
 
     def __str__(self):
         return f"Підписка для {self.user_id} - {self.subscription_purchase_date}"
