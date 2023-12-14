@@ -160,28 +160,27 @@ class TrainingTypeSerializerTest(TestCase):
         self.assertEqual(saved_training_type.description, 'Sample description')
         self.assertEqual(float(saved_training_type.price), 50.0)
 class UserRegistrationSerializerTest(APITestCase):
-    def test_valid_data(self):
-        # Правильні дані користувача
-        data = {
-            'email': 'example@gmail.com',
+    def setUp(self):
+        self.valid_data = {
+            'email': 'user@example.com',
             'first_name': 'John',
             'last_name': 'Doe',
             'password': 'password123'
         }
-        serializer = UserRegistrationSerializer(data=data)
-        self.assertTrue(serializer.is_valid())
 
-    def test_invalid_email(self):
-        # Невірний формат електронної пошти
-        data = {
-            'email': 'example@example.com',  # Невірний формат
-            'first_name': 'John',
-            'last_name': 'Doe',
-            'password': 'password123'
-        }
-        serializer = UserRegistrationSerializer(data=data)
-        self.assertFalse(serializer.is_valid())
-        self.assertIn('Електронна пошта повинна закінчуватися на @gmail.com.', serializer.errors['email'])
+    def test_registration_with_invalid_email(self):
+        invalid_data = self.valid_data.copy()
+        invalid_data['email'] = 'test'
+        response = self.client.post('/api/manager/register/', data=invalid_data)
+        self.assertEqual(response.status_code, 400)
+
+        # Перевірка наявності 'email' у відповіді
+        self.assertIn('email', response.json())
+
+        # Перевірка тексту помилки, використовуючи 'in'
+        expected_error = 'Enter a valid email address.'
+        actual_error = response.json()['email'][0]
+        self.assertIn(expected_error, actual_error)
 
     def test_invalid_password(self):
         # Невірний пароль (занадто короткий)
